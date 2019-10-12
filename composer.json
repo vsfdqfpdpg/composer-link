@@ -1,0 +1,22 @@
+{
+  "name": "vsfdqfpdpg/composer-link",
+  "description": "Create a local composer link for development and can be required to other project.",
+  "homepage": "https://github.com/vsfdqfpdpg",
+  "keywords": [
+    "composer",
+    "composer link",
+    "npm link"
+  ],
+  "version": "1.0.0",
+  "require": {
+    "symfony/console": "^4.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "": "src"
+    }
+  },
+  "bin": [
+    "composer-link"
+  ]
+}
