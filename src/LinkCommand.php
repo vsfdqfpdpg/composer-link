@@ -63,12 +63,17 @@ class LinkCommand extends Command
         $this->output->writeln('<info>' . $command . '</info>');
         // Get default repo.packagist settings
         $composerRepoJson = json_decode(trim(shell_exec("composer config -g repo")), true);
-        $composerRepo = str_replace('"', '\"', json_encode($composerRepoJson["packagist.org"]));
+        $origin = json_encode($composerRepoJson["packagist.org"]);
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $resumeCommand = 'composer config -g repo.packagist "' . str_replace('"', '\"', $origin) . '"';
+        } else {
+            $resumeCommand = "composer config -g repo.packagist '" . $origin . "'";
+        }
         // Disable packagist temporarily
         shell_exec("composer config -g repo.packagist false");
         shell_exec($command);
         // Resume packagist setting
-        shell_exec("composer config -g repo.packagist " . $composerRepo);
+        shell_exec($resumeCommand);
     }
 
     protected function link()
