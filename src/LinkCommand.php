@@ -36,7 +36,7 @@ class LinkCommand extends Command
         if (!is_readable($jsonFile) || !is_file($jsonFile)) {
             file_put_contents('composer.json', "{\n    \"require\": {} }");
         }
-        $home = trim(shell_exec('composer config --global home')) . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $package;
+        $home = $this->getShellExecOutput('composer config --global home') . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $package;
 
         if (!is_link($home)) {
             $this->exit($package . ' is not exist in your local repository.');
@@ -58,11 +58,11 @@ class LinkCommand extends Command
         ];
 
         $registerRepository = 'composer config repositories.' . $package . ' "' . str_replace('"', '\"', json_encode($config)) . '"';
-        shell_exec($registerRepository);
+        $this->getShellExecOutput($registerRepository);
         $command = 'composer require "' . $package . '" "' . $version . '"';
         $this->output->writeln('<info>' . $command . '</info>');
         // Get default repo.packagist settings
-        $composerRepoJson = json_decode(trim(shell_exec("composer config -g repo")), true);
+        $composerRepoJson = json_decode($this->getShellExecOutput("composer config -g repo"), true);
         $origin = json_encode($composerRepoJson["packagist.org"]);
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $resumeCommand = 'composer config -g repo.packagist "' . str_replace('"', '\"', $origin) . '"';
@@ -70,16 +70,16 @@ class LinkCommand extends Command
             $resumeCommand = "composer config -g repo.packagist '" . $origin . "'";
         }
         // Disable packagist temporarily
-        shell_exec("composer config -g repo.packagist false");
+        $this->getShellExecOutput("composer config -g repo.packagist false");
         shell_exec($command);
         // Resume packagist setting
-        shell_exec($resumeCommand);
+        $this->getShellExecOutput($resumeCommand);
     }
 
     protected function link()
     {
         $name = $this->checkComposerJson();
-        $home = trim(shell_exec('composer config --global home'));
+        $home = $this->getShellExecOutput('composer config --global home');
 
         $packageDirectory = $home . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $name[0];
         !is_dir($packageDirectory) && mkdir($packageDirectory, 0755, true);
@@ -99,12 +99,13 @@ class LinkCommand extends Command
             $this->exit('File "./composer.json" cannot be found in the current directory');
         }
 
-        $name = trim(shell_exec('composer config name 2>&1'));
-        $version = trim(shell_exec('composer config version 2>&1'));
+        $name = $this->getShellExecOutput('composer config name 2>&1');
 
         if (stripos($name, 'RuntimeException')) {
             $this->exit('Package name is not defined in your composer.json file.');
         }
+
+        $version = $this->getShellExecOutput('composer config version 2>&1');
 
         if (stripos($version, 'RuntimeException')) {
             $this->exit('Package version is not defined in your composer.json file.');
@@ -112,6 +113,16 @@ class LinkCommand extends Command
         }
 
         return explode('/', $name);
+    }
+
+    protected function getShellExecOutput($command)
+    {
+        if (!defined('PHP_WINDOWS_VERSION_BUILD') && !getenv('COMPOSER_ALLOW_SUPERUSER') && function_exists('posix_getuid') && posix_getuid() === 0) {
+            $result = shell_exec(str_replace('2>&1', '', $command) . ' 2>&1');
+            return trim(substr($result, strpos($result, "\n") + 1));
+        }
+
+        return trim(shell_exec($command));
     }
 
     protected function exit($message)
