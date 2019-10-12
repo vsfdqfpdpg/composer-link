@@ -29,9 +29,25 @@ class LinkCommand extends Command
         }
     }
 
+    protected function checkPackage($package)
+    {
+        $this->output->writeln('<info>Check local package.</info>');
+        $jsonFile = getcwd() . DIRECTORY_SEPARATOR . 'composer.json';
+        if (!is_readable($jsonFile) || !is_file($jsonFile)) {
+            file_put_contents('composer.json', "{\n    \"require\": {} }");
+        }
+        $home = trim(shell_exec('composer config --global home')) . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $package;
+
+        if (!is_link($home)) {
+            $this->exit($package . ' is not exist in your local repository.');
+        }
+
+        return $home;
+    }
+
     protected function linkToProject($package, $version)
     {
-        $home = trim(shell_exec('composer config --global home')) . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $package;
+        $home = $this->checkPackage($package);
 
         $config = [
             "type" => "path",
@@ -43,8 +59,16 @@ class LinkCommand extends Command
 
         $registerRepository = 'composer config repositories.' . $package . ' "' . str_replace('"', '\"', json_encode($config)) . '"';
         shell_exec($registerRepository);
-        echo 'composer require "' . $package . '" "' . $version . '"';
-        shell_exec('composer require "' . $package . '" "' . $version . '"');
+        $command = 'composer require "' . $package . '" "' . $version . '"';
+        $this->output->writeln('<info>' . $command . '</info>');
+        // Get default repo.packagist settings
+        $composerRepoJson = json_decode(trim(shell_exec("composer config -g repo")), true);
+        $composerRepo = str_replace('"', '\"', json_encode($composerRepoJson["packagist.org"]));
+        // Disable packagist temporarily
+        shell_exec("composer config -g repo.packagist false");
+        shell_exec($command);
+        // Resume packagist setting
+        shell_exec("composer config -g repo.packagist " . $composerRepo);
     }
 
     protected function link()
